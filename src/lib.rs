@@ -32,7 +32,7 @@ extern "C" {
 }
 
 #[wasm_bindgen]
-pub fn load_level(js_value: &str) -> Result<bool, JsValue> {
+pub fn load_level(js_value: &str) -> Result<JsValue, JsValue> {
     let mut result: chart::Chart =
         serde_json::from_str(js_value).map_err(|e| format!("failed to analyze, {}", e))?;
     let result_lines = result
@@ -45,8 +45,7 @@ pub fn load_level(js_value: &str) -> Result<bool, JsValue> {
         })
         .collect::<Vec<_>>();
     result.judge_line_list = result_lines;
-    states::init_line_states(result).map_err(|e| format!("failed to initialize: {:?}", e))?;
-    Ok(true)
+    states::init_line_states(result)
 }
 
 #[wasm_bindgen]

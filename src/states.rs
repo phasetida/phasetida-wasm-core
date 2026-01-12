@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use serde::Serialize;
 use wasm_bindgen::JsValue;
 
 use crate::{
@@ -49,6 +50,11 @@ pub struct NoteState {
     pub extra_score: NoteScore,
 }
 
+#[derive(Serialize)]
+struct Metadata {
+    length_in_second: f64,
+}
+
 impl Default for LineState {
     fn default() -> Self {
         LineState {
@@ -94,7 +100,7 @@ impl Default for NoteState {
     }
 }
 
-pub fn init_line_states(chart: chart::Chart) -> Result<(), JsValue> {
+pub fn init_line_states(chart: chart::Chart) -> Result<JsValue, JsValue> {
     LINE_STATES
         .try_with(|states_rc| {
             let mut states = states_rc.borrow_mut();
@@ -138,9 +144,14 @@ pub fn init_line_states(chart: chart::Chart) -> Result<(), JsValue> {
             });
             (available_len..states.len()).for_each(|it| states[it].enable = false);
             process_highlight(states.as_mut());
+            Ok(serde_wasm_bindgen::to_value(&get_metadata(states.as_ref()))
+                .map_err(|e| format!("failed to serialize the metadata: {}", e))?)
         })
-        .map_err(|_| "failed to access states")?;
-    Ok(())
+        .map_err(|_| "failed to access states")?
+}
+
+fn get_seconds_per_tick(bpm: f64) -> f64 {
+    60.0 / bpm / 32.0
 }
 
 fn process_highlight(judge_line_states: &mut [LineState]) {
@@ -150,7 +161,7 @@ fn process_highlight(judge_line_states: &mut [LineState]) {
         if !it.enable {
             return;
         }
-        let seconds_per_tick = 60.0 / it.bpm / 32.0;
+        let seconds_per_tick = get_seconds_per_tick(it.bpm);
         let mut process = |notes: &Vec<NoteState>| {
             notes.iter().for_each(|n| {
                 let tick_time = n.note.time;
@@ -169,7 +180,7 @@ fn process_highlight(judge_line_states: &mut [LineState]) {
         if !it.enable {
             return;
         }
-        let seconds_per_tick = 60.0 / it.bpm / 32.0;
+        let seconds_per_tick = get_seconds_per_tick(it.bpm);
         let process = |notes: &mut Vec<NoteState>| {
             notes.iter_mut().for_each(|n| {
                 let tick_time = n.note.time;
@@ -781,4 +792,38 @@ fn tick_tap_note(
             return;
         }
     }
+}
+
+fn get_metadata(state: &[LineState]) -> Metadata {
+    let note_max_time = state.iter().fold(0.0, |last, it| {
+        let seconds_per_tick = get_seconds_per_tick(it.bpm);
+        let get_time = |note: &NoteState| -> f64 {
+            (note.note.time as f64 + note.note.hold_time) * seconds_per_tick
+        };
+        [
+            it.notes_above_state.last().map(get_time).unwrap_or(0.0),
+            it.notes_below_state.last().map(get_time).unwrap_or(0.0),
+        ]
+        .iter()
+        .fold(last, |l, i| i.max(l))
+    });
+    let event_max_time = state.iter().fold(0.0, |last, it| {
+        fn event_folder(seconds_per_tick: f64, events: &[impl WithTimeRange]) -> f64 {
+            events
+                .iter()
+                .fold(0.0, |last, it| last.max(it.time_start() * seconds_per_tick))
+        }
+        let seconds_per_tick = get_seconds_per_tick(it.bpm);
+        [
+            event_folder(seconds_per_tick, &it.move_events),
+            event_folder(seconds_per_tick, &it.alpha_events),
+            event_folder(seconds_per_tick, &it.speed_events),
+            event_folder(seconds_per_tick, &it.rotate_events),
+        ]
+        .iter()
+        .fold(last, |l, i| i.max(l))
+    });
+    return Metadata {
+        length_in_second: note_max_time.max(event_max_time),
+    };
 }
