@@ -26,6 +26,9 @@ jobs:
       - name: Build WASM npm package
         run: wasm-pack build --release --target web
 
+      - name: Remove .gitignore
+        run: rm pkg/.gitignore
+
       - name: Push pkg to dist branch
         uses: peaceiris/actions-gh-pages@v4
         with:
