@@ -56,3 +56,8 @@ pub fn pre_draw(time_in_second: f64, delta_time_in_second: f64, auto: bool) -> R
     OUTPUT_BUFFER.with(|buf| process_state_to_drawable(buf))?;
     Ok(())
 }
+
+#[wasm_bindgen]
+pub fn reset_note_state(before_time_in_second:f64)-> Result<(),JsValue>{
+    states::reset_note_state(before_time_in_second)
+}
