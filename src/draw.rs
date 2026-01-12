@@ -21,10 +21,7 @@ impl<'a> BufferWithCursor<'a> {
     }
 }
 
-pub fn process_state_to_drawable(
-    output_buffer: &js_sys::Uint8Array,
-    simultaneous_highlight: bool,
-) -> Result<(), JsValue> {
+pub fn process_state_to_drawable(output_buffer: &js_sys::Uint8Array) -> Result<(), JsValue> {
     let mut wrapped_buffer = BufferWithCursor {
         buffer: output_buffer,
         cursor: 0,
@@ -35,7 +32,7 @@ pub fn process_state_to_drawable(
             states
                 .iter()
                 .for_each(|it| write_line(&mut wrapped_buffer, it));
-            write_notes(&mut wrapped_buffer, states.as_ref(), simultaneous_highlight);
+            write_notes(&mut wrapped_buffer, states.as_ref());
         })
         .map_err(|_| "failed to access states")?;
     HIT_EFFECT_POOL
@@ -100,14 +97,10 @@ fn write_line(wrapped_buffer: &mut BufferWithCursor, state: &LineState) {
     wrapped_buffer.write(line_slice);
 }
 
-fn write_notes(
-    wrapped_buffer: &mut BufferWithCursor,
-    states: &[LineState],
-    simultaneous_highlight: bool,
-) {
+fn write_notes(wrapped_buffer: &mut BufferWithCursor, states: &[LineState]) {
     let notes = states
         .iter()
-        .map(|it| process_notes(it, simultaneous_highlight))
+        .map(|it| process_notes(it))
         .collect::<Vec<_>>();
     notes
         .iter()
@@ -117,10 +110,7 @@ fn write_notes(
         .for_each(|(it, _)| it.iter().for_each(|it| wrapped_buffer.write(it.to_bytes())));
 }
 
-fn process_notes(
-    state: &LineState,
-    simultaneous_highlight: bool,
-) -> (Vec<RendNote>, Vec<RendNote>) {
+fn process_notes(state: &LineState) -> (Vec<RendNote>, Vec<RendNote>) {
     let mut vec = Vec::<RendNote>::new();
     let mut hold_vec = Vec::<RendNote>::new();
     let line_y = state.line_y;
@@ -152,11 +142,7 @@ fn process_notes(
             if *score != NoteScore::None && *note_type != NoteType::Hold {
                 continue;
             }
-            let should_high_light: i8 = if *highlight && simultaneous_highlight {
-                1
-            } else {
-                0
-            };
+            let should_high_light: i8 = if *highlight { 1 } else { 0 };
             match note_type {
                 NoteType::Tap | NoteType::Drag | NoteType::Flick => {
                     let delta_y = floor_position - line_y;

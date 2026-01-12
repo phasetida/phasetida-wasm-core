@@ -50,15 +50,10 @@ pub fn load_level(js_value: &str) -> Result<bool, JsValue> {
 }
 
 #[wasm_bindgen]
-pub fn pre_draw(
-    time_in_second: f64,
-    delta_time_in_second: f64,
-    simultaneous_highlight: bool,
-    auto: bool,
-) -> Result<(), JsValue> {
+pub fn pre_draw(time_in_second: f64, delta_time_in_second: f64, auto: bool) -> Result<(), JsValue> {
     states::tick_lines(time_in_second)?;
     effect::tick_effect(delta_time_in_second)?;
     states::tick_lines_judge(delta_time_in_second, auto)?;
-    OUTPUT_BUFFER.with(|buf| process_state_to_drawable(buf, simultaneous_highlight))?;
+    OUTPUT_BUFFER.with(|buf| process_state_to_drawable(buf))?;
     Ok(())
 }
