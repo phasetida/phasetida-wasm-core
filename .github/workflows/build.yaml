@@ -24,7 +24,7 @@ jobs:
         run: cargo install wasm-pack
 
       - name: Build WASM npm package
-        run: wasm-pack build --release --target web
+        run: wasm-pack build --release --target bundler
 
       - name: Remove .gitignore
         run: rm pkg/.gitignore
