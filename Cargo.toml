@@ -1,5 +1,5 @@
 [package]
-name = "nofyso-simple-phi-sim-core"
+name = "phasetida-wasm-core"
 version = "0.1.0"
 edition = "2024"
 
