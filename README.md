@@ -1,4 +1,5 @@
 # phasetida-wasm-core
+![](https://github.com/phasetida/phasetida-wasm-core/actions/workflows/build.yaml/badge.svg)  
 一个简单的 Rust → WebAssembly 组件，将 [Phigros](https://www.taptap.cn/app/165287) 官方铺面文件渲染为紧凑的结构体。
 
 ## 安装
@@ -12,17 +13,17 @@ npm install phasetida/phasetida-wasm-core#dist
 ~~欸欸欸？这么信不过咱吗？~~  
 1. 安装Cargo（如果已经安装了，请跳过这一步；如果没有的话，可以参考[这个教程](https://doc.rust-lang.org/cargo/getting-started/installation.html)）
 2. 安装wasm-pack：
-```bash
-cargo install wasm-pack
-```
+   ```bash
+   cargo install wasm-pack
+   ```
 3. 克隆这个仓库
-```bash
-git clone https://github.com/phasetida/phasetida-wasm-core
-```
+   ```bash
+   git clone https://github.com/phasetida/phasetida-wasm-core
+   ```
 4. 进入仓库目录，然后执行wasm构建：
-```bash
-wasm-pack build --target web
-```
+   ```bash
+   wasm-pack build --target web
+   ```
 5. 最后，在``package.json``文件里引用仓库里的``pkg``目录就可以啦
 
 ## 使用
