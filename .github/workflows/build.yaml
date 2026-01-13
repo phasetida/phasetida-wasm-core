@@ -37,3 +37,11 @@ jobs:
           publish_branch: dist
           keep_files: false
           force_orphan: true
+      
+      - name: Trigger workflow in another repo
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: build_deploy.yml
+          repo: phasetida/phasetida-node-demo
+          ref: main
+          token: ${{ secrets.DEMO_TOKEN }}
