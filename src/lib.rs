@@ -4,6 +4,7 @@ mod effect;
 mod input;
 mod math;
 mod renders;
+mod state_statistics;
 mod states;
 
 use crate::draw::process_state_to_drawable;
@@ -11,9 +12,11 @@ use std::{cell::RefCell, rc::Rc};
 use wasm_bindgen::prelude::*;
 
 thread_local! {
+    pub static FLATTEN_NOTE_INDEX:Rc<RefCell<Vec<state_statistics::NoteIndex>>>= Rc::new(RefCell::new(Vec::<_>::new()));
     pub static LINE_STATES: Rc<RefCell<[states::LineState;50]>> = Rc::new(RefCell::new(std::array::from_fn(|_|std::default::Default::default())));
     pub static TOUCH_STATES: Rc<RefCell<[input::TouchInfo; 30]>> = Rc::new(RefCell::new(std::array::from_fn(|_|std::default::Default::default())));
     pub static HIT_EFFECT_POOL: Rc<RefCell<[effect::HitEffect; 64]>> = Rc::new(RefCell::new(std::array::from_fn(|_|std::default::Default::default())));
+    pub static CHART_STATISTICS: Rc<RefCell<state_statistics::ChartStatistics>>= Rc::new(RefCell::new(std::default::Default::default()));
 }
 
 #[wasm_bindgen]
@@ -35,7 +38,7 @@ extern "C" {
 pub fn load_level(js_value: &str) -> Result<JsValue, JsValue> {
     let mut result: chart::Chart =
         serde_json::from_str(js_value).map_err(|e| format!("failed to analyze, {}", e))?;
-    let result_lines = result
+    result.judge_line_list = result
         .judge_line_list
         .into_iter()
         .map(|mut line| {
@@ -44,20 +47,24 @@ pub fn load_level(js_value: &str) -> Result<JsValue, JsValue> {
             line
         })
         .collect::<Vec<_>>();
-    result.judge_line_list = result_lines;
-    states::init_line_states(result)
+    let meta = states::init_line_states(result)?;
+    state_statistics::init_flatten_line_state()?;
+    Ok(meta)
 }
 
 #[wasm_bindgen]
 pub fn pre_draw(time_in_second: f64, delta_time_in_second: f64, auto: bool) -> Result<(), JsValue> {
     states::tick_lines(time_in_second)?;
     effect::tick_effect(delta_time_in_second)?;
-    states::tick_lines_judge(delta_time_in_second, auto)?;
+    let judged = states::tick_lines_judge(delta_time_in_second, auto)?;
+    if judged {
+        state_statistics::refresh_chart_statistics()?;
+    }
     OUTPUT_BUFFER.with(|buf| process_state_to_drawable(buf))?;
     Ok(())
 }
 
 #[wasm_bindgen]
-pub fn reset_note_state(before_time_in_second:f64)-> Result<(),JsValue>{
+pub fn reset_note_state(before_time_in_second: f64) -> Result<(), JsValue> {
     states::reset_note_state(before_time_in_second)
 }

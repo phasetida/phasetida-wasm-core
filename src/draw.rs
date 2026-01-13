@@ -3,9 +3,9 @@ use wasm_bindgen::prelude::*;
 use crate::chart::{Note, NoteType};
 use crate::effect::HitEffect;
 use crate::math::{self, Point};
-use crate::renders::{self, Dense, RendEffect, RendNote, RendPoint};
+use crate::renders::{self, Dense, RendEffect, RendNote, RendPoint, RendStatistics};
 use crate::states::{LineState, NoteScore, NoteState};
-use crate::{HIT_EFFECT_POOL, LINE_STATES, TOUCH_STATES};
+use crate::{CHART_STATISTICS, HIT_EFFECT_POOL, LINE_STATES, TOUCH_STATES};
 
 struct BufferWithCursor<'a> {
     buffer: &'a js_sys::Uint8Array,
@@ -26,6 +26,21 @@ pub fn process_state_to_drawable(output_buffer: &js_sys::Uint8Array) -> Result<(
         buffer: output_buffer,
         cursor: 0,
     };
+    CHART_STATISTICS
+        .try_with(|statistics_raw| {
+            let statistics = statistics_raw.borrow();
+            wrapped_buffer.write(
+                RendStatistics {
+                    rend_type: 5,
+                    combo: statistics.combo,
+                    max_combo: statistics.max_combo,
+                    score: statistics.score as f32,
+                    accurate: statistics.accurate as f32,
+                }
+                .to_bytes(),
+            );
+        })
+        .map_err(|_| "failed to access states")?;
     LINE_STATES
         .try_with(|states_ref| {
             let states = states_ref.borrow();

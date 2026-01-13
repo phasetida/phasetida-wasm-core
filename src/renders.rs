@@ -35,6 +35,15 @@ pub struct RendPoint {
     pub y: f32,
 }
 
+#[repr(C, packed)]
+pub struct RendStatistics {
+    pub rend_type: i8,
+    pub combo: u32,
+    pub max_combo: u32,
+    pub score: f32,
+    pub accurate: f32,
+}
+
 pub trait Dense {
     fn to_bytes(&self) -> &[u8]
     where
@@ -50,9 +59,7 @@ pub trait Dense {
 }
 
 impl Dense for RendLine {}
-
 impl Dense for RendNote {}
-
 impl Dense for RendEffect {}
-
 impl Dense for RendPoint {}
+impl Dense for RendStatistics {}

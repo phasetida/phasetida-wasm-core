@@ -150,7 +150,7 @@ pub fn init_line_states(chart: chart::Chart) -> Result<JsValue, JsValue> {
         .map_err(|_| "failed to access states")?
 }
 
-fn get_seconds_per_tick(bpm: f64) -> f64 {
+pub fn get_seconds_per_tick(bpm: f64) -> f64 {
     60.0 / bpm / 32.0
 }
 
@@ -327,7 +327,7 @@ where
     }
 }
 
-pub fn tick_lines_judge(delta_time_in_second: f64, auto: bool) -> Result<(), JsValue> {
+pub fn tick_lines_judge(delta_time_in_second: f64, auto: bool) -> Result<bool, JsValue> {
     INPUT_BUFFER.with(input::process_touch_info)?;
     TOUCH_STATES
         .try_with(|touches_ref| {
@@ -335,12 +335,17 @@ pub fn tick_lines_judge(delta_time_in_second: f64, auto: bool) -> Result<(), JsV
             LINE_STATES
                 .try_with(|state_ref| {
                     let mut lines = state_ref.borrow_mut();
-                    tick_line_judge(delta_time_in_second, touches.as_mut(), lines.as_mut(), auto);
+                    let judged = tick_line_judge(
+                        delta_time_in_second,
+                        touches.as_mut(),
+                        lines.as_mut(),
+                        auto,
+                    );
+                    Ok(judged)
                 })
                 .map_err(|_| "failed to access state")
         })
-        .map_err(|_| "failed to access state")??;
-    Ok(())
+        .map_err(|_| "failed to access state")??
 }
 
 fn tick_line_judge(
@@ -348,7 +353,8 @@ fn tick_line_judge(
     touches: &mut [TouchInfo],
     lines: &mut [LineState],
     auto: bool,
-) {
+) -> bool {
+    let mut judged = false;
     lines.iter_mut().for_each(|line| {
         if !line.enable {
             return;
@@ -363,7 +369,7 @@ fn tick_line_judge(
                 let line_rotate = line.rotate;
                 let bpm = line.bpm;
                 let note_type = note.note.note_type;
-                if auto {
+                let local_judged = if auto {
                     match note_type {
                         NoteType::Hold => tick_hold_note_auto(
                             delta_time_in_second,
@@ -424,14 +430,16 @@ fn tick_line_judge(
                             bpm,
                         ),
                     }
-                }
-            });
+                };
+                judged |= local_judged;
+            })
     });
     touches.iter_mut().for_each(|touch| {
         if touch.enable {
             touch.touch_valid = false;
         }
     });
+    judged
 }
 
 fn check_point_in_judge_range(
@@ -512,9 +520,9 @@ fn tick_normal_note_auto(
     line_y: f64,
     line_rotate: f64,
     bpm: f64,
-) {
+) -> bool {
     if note.score != NoteScore::None {
-        return;
+        return false;
     }
     let (judge_delta, _) = check_judge_result(current_tick, note, bpm);
     if judge_delta >= 0.0 {
@@ -529,7 +537,9 @@ fn tick_normal_note_auto(
         );
         note.score = NoteScore::Perfect;
         create_splash(root_x, root_y, NoteScore::Perfect);
+        return true;
     }
+    false
 }
 
 fn tick_flick_note(
@@ -540,13 +550,13 @@ fn tick_flick_note(
     line_y: f64,
     line_rotate: f64,
     bpm: f64,
-) {
+) -> bool {
     if note.score != NoteScore::None {
-        return;
+        return false;
     }
     let (judge_delta, judge_result) = check_judge_result(current_tick, note, bpm);
     if judge_delta < 0.0 && judge_result == NoteScore::Miss {
-        return;
+        return false;
     }
     if note.extra_score != NoteScore::None {
         if judge_delta > 0.0 {
@@ -561,12 +571,13 @@ fn tick_flick_note(
             );
             note.score = NoteScore::Perfect;
             create_splash(root_x, root_y, NoteScore::Perfect);
+            return true;
         }
-        return;
+        return false;
     }
     if judge_delta > 0.0 && judge_result == NoteScore::Miss {
         note.score = NoteScore::Miss;
-        return;
+        return true;
     }
     for touch in touches {
         if !touch.enable {
@@ -577,9 +588,10 @@ fn tick_flick_note(
         if is_in_judge_range && touch.length() >= 50.0 {
             note.extra_score = NoteScore::Perfect;
             touch.reset_length();
-            return;
+            return false;
         }
     }
+    false
 }
 
 fn tick_hold_note_auto(
@@ -591,9 +603,9 @@ fn tick_hold_note_auto(
     line_y: f64,
     line_rotate: f64,
     bpm: f64,
-) {
+) -> bool {
     if note.score != NoteScore::None {
-        return;
+        return false;
     }
     let (judge_delta, _) = check_judge_result(current_tick, note, bpm);
     if judge_delta >= 0.0 {
@@ -609,7 +621,8 @@ fn tick_hold_note_auto(
         line_rotate,
         bpm,
         true,
-    );
+    )
+    .1
 }
 
 fn tick_hold_note_common(
@@ -622,10 +635,11 @@ fn tick_hold_note_common(
     line_rotate: f64,
     bpm: f64,
     auto: bool,
-) -> bool {
+) -> (bool, bool) {
     if note.extra_score != NoteScore::None {
         let seconds_per_tick = 60.0 / bpm / 32.0;
         let delta_tick = delta_time_in_second / seconds_per_tick;
+        let mut judged = false;
         note.hold_cool_down -= delta_tick;
         if note.hold_cool_down <= 0.0 {
             let Point {
@@ -648,14 +662,16 @@ fn tick_hold_note_common(
                 create_splash(root_x, root_y, note.extra_score);
             } else {
                 note.score = NoteScore::Miss;
+                judged = true;
             }
         }
         if note.note.hold_time + note.note.time as f64 <= current_tick {
             note.score = note.extra_score;
+            judged = true;
         }
-        return true;
+        return (true, judged);
     }
-    false
+    (false, false)
 }
 
 fn tick_hold_note(
@@ -667,11 +683,11 @@ fn tick_hold_note(
     line_y: f64,
     line_rotate: f64,
     bpm: f64,
-) {
+) -> bool {
     if note.score != NoteScore::None {
-        return;
+        return false;
     }
-    if tick_hold_note_common(
+    let (hold, hold_judged) = tick_hold_note_common(
         delta_time_in_second,
         current_tick,
         note,
@@ -681,16 +697,17 @@ fn tick_hold_note(
         line_rotate,
         bpm,
         false,
-    ) {
-        return;
+    );
+    if hold {
+        return hold_judged;
     }
     let (judge_delta, judge_result) = check_judge_result(current_tick, note, bpm);
     if judge_delta < 0.0 && judge_result == NoteScore::Miss {
-        return;
+        return false;
     }
     if judge_delta > 0.0 && judge_result == NoteScore::Miss {
         note.score = NoteScore::Miss;
-        return;
+        return true;
     }
     for touch in touches {
         if !touch.enable {
@@ -704,9 +721,10 @@ fn tick_hold_note(
             }
             touch.touch_valid = false;
             note.extra_score = judge_result;
-            return;
+            return false;
         }
     }
+    false
 }
 
 fn tick_drag_note(
@@ -717,13 +735,13 @@ fn tick_drag_note(
     line_y: f64,
     line_rotate: f64,
     bpm: f64,
-) {
+) -> bool {
     if note.score != NoteScore::None {
-        return;
+        return false;
     }
     let (judge_delta, judge_result) = check_judge_result(current_tick, note, bpm);
     if judge_delta < 0.0 && judge_result == NoteScore::Miss {
-        return;
+        return false;
     }
     if note.extra_score != NoteScore::None {
         if judge_delta > 0.0 {
@@ -738,12 +756,13 @@ fn tick_drag_note(
             );
             note.score = NoteScore::Perfect;
             create_splash(root_x, root_y, NoteScore::Perfect);
+            return true;
         }
-        return;
+        return false;
     }
     if judge_delta > 0.0 && judge_result == NoteScore::Miss {
         note.score = NoteScore::Miss;
-        return;
+        return true;
     }
     for touch in touches {
         if !touch.enable {
@@ -753,9 +772,10 @@ fn tick_drag_note(
             check_point_in_judge_range(line_x, line_y, line_rotate, &note.note, touch);
         if is_in_judge_range {
             note.extra_score = NoteScore::Perfect;
-            return;
+            return false;
         }
     }
+    false
 }
 
 fn tick_tap_note(
@@ -766,18 +786,18 @@ fn tick_tap_note(
     line_y: f64,
     line_rotate: f64,
     bpm: f64,
-) {
+) -> bool {
     if note.score != NoteScore::None {
-        return;
+        return false;
     }
     let (judge_delta, judge_result) = check_judge_result(current_tick, note, bpm);
     if judge_delta < 0.0 && judge_result == NoteScore::Miss {
-        return;
+        return false;
     }
     //+ late
     if judge_delta > 0.0 && judge_result == NoteScore::Miss {
         note.score = NoteScore::Miss;
-        return;
+        return true;
     }
     for touch in touches {
         if !touch.enable {
@@ -789,9 +809,10 @@ fn tick_tap_note(
             touch.touch_valid = false;
             note.score = judge_result;
             create_splash(root_x, root_y, judge_result);
-            return;
+            return true;
         }
     }
+    false
 }
 
 fn get_metadata(state: &[LineState]) -> Metadata {
