@@ -845,6 +845,9 @@ pub fn reset_note_state(before_time_in_second: f64) -> Result<(), JsValue> {
                             note.score = NoteScore::None;
                         } else if hold_time_in_second >= before_time_in_second {
                             note.score = NoteScore::None;
+                        } else {
+                            note.score = NoteScore::Perfect;
+                            note.extra_score = NoteScore::Perfect;
                         }
                     });
                 };
