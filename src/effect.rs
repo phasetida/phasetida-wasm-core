@@ -30,7 +30,7 @@ pub fn tick_effect(delta_time_in_second: f64) -> Result<(), JsValue> {
             let mut pool = pool_ref.borrow_mut();
             pool.iter_mut().for_each(|it| {
                 if it.enable {
-                    it.progress += delta_time_in_second * RATE;
+                    it.progress += delta_time_in_second.max(0.0) * RATE;
                     if it.progress >= 1.0 {
                         it.enable = false;
                     }

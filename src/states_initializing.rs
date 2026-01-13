@@ -12,6 +12,7 @@ pub fn init_line_states(chart: chart::Chart) -> Result<JsValue, JsValue> {
     LINE_STATES
         .try_with(|states_rc| {
             let mut states = states_rc.borrow_mut();
+            *states = std::array::from_fn(|_| std::default::Default::default());
             let iter = chart.judge_line_list.into_iter().enumerate();
             let available_len = iter.len();
             iter.for_each(|(i, it)| {
