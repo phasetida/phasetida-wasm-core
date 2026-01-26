@@ -1,4 +1,3 @@
-use wasm_bindgen::JsValue;
 
 use crate::{
     LINE_STATES,
@@ -7,16 +6,13 @@ use crate::{
     states::LineState,
 };
 
-pub fn tick_lines(time_in_second: f64) -> Result<(), JsValue> {
+pub fn tick_lines(time_in_second: f64) {
     LINE_STATES
-        .try_with(|it| {
-            let mut x = it.borrow_mut();
+        .with_borrow_mut(|x| {
             for state in x.iter_mut() {
                 tick_line_state(time_in_second, state);
             }
-        })
-        .map_err(|_| "failed to access states")?;
-    Ok(())
+        });
 }
 
 fn get_line_y(tick_time: f64, line: &LineState) -> f64 {

@@ -1,4 +1,3 @@
-use wasm_bindgen::JsValue;
 
 use crate::{
     CHART_STATISTICS, FLATTEN_NOTE_INDEX, LINE_STATES,
@@ -45,19 +44,12 @@ impl NoteIndex {
     }
 }
 
-pub fn init_flatten_line_state() -> Result<(), JsValue> {
-    LINE_STATES
-        .try_with(|line_state_raw| {
-            FLATTEN_NOTE_INDEX
-                .try_with(|flatten_index_raw| {
-                    let line_state = line_state_raw.borrow();
-                    let mut flatten_index = flatten_index_raw.borrow_mut();
-                    _init_flatten_line_state(line_state.as_ref(), &mut flatten_index);
-                })
-                .map_err(|_| "failed to access states")
-        })
-        .map_err(|_| "failed to access states")??;
-    Ok(())
+pub fn init_flatten_line_state() {
+    LINE_STATES.with_borrow(|line_state| {
+        FLATTEN_NOTE_INDEX.with_borrow_mut(|flatten_index| {
+            _init_flatten_line_state(line_state.as_ref(), flatten_index);
+        });
+    });
 }
 
 fn _init_flatten_line_state(line_state: &[LineState], flatten_index: &mut Vec<NoteIndex>) {
@@ -91,28 +83,14 @@ fn _init_flatten_line_state(line_state: &[LineState], flatten_index: &mut Vec<No
     *flatten_index = o;
 }
 
-pub fn refresh_chart_statistics() -> Result<(), JsValue> {
-    LINE_STATES
-        .try_with(|line_states_raw| {
-            FLATTEN_NOTE_INDEX
-                .try_with(|flatten_index_raw| {
-                    CHART_STATISTICS
-                        .try_with(|chart_statistics_raw| {
-                            let line_states = line_states_raw.borrow();
-                            let flatten_index = flatten_index_raw.borrow();
-                            let mut chart_statistics = chart_statistics_raw.borrow_mut();
-                            _refresh_chart_statistics(
-                                line_states.as_ref(),
-                                flatten_index.as_ref(),
-                                &mut chart_statistics,
-                            );
-                        })
-                        .map_err(|_| "failed to access states")
-                })
-                .map_err(|_| "failed to access states")
-        })
-        .map_err(|_| "failed to access states")???;
-    Ok(())
+pub fn refresh_chart_statistics() {
+    LINE_STATES.with_borrow(|line_states| {
+        FLATTEN_NOTE_INDEX.with_borrow(|flatten_index| {
+            CHART_STATISTICS.with_borrow_mut(|chart_statistics| {
+                _refresh_chart_statistics(line_states, flatten_index, chart_statistics);
+            });
+        });
+    });
 }
 
 fn _refresh_chart_statistics(

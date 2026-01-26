@@ -1,5 +1,4 @@
 use serde::Serialize;
-use wasm_bindgen::JsValue;
 
 use crate::{
     LINE_STATES,
@@ -99,32 +98,29 @@ pub fn get_seconds_per_tick(bpm: f64) -> f64 {
     60.0 / bpm / 32.0
 }
 
-pub fn reset_note_state(before_time_in_second: f64) -> Result<(), JsValue> {
-    LINE_STATES
-        .try_with(|states_rc| {
-            let mut state = states_rc.borrow_mut();
-            state.iter_mut().for_each(|line| {
-                let seconds_per_tick = get_seconds_per_tick(line.bpm);
-                let process_notes = |notes: &mut [NoteState]| {
-                    notes.iter_mut().for_each(|note| {
-                        note.hold_cool_down = 0.0;
-                        let note_time_in_second = note.note.time as f64 * seconds_per_tick;
-                        let hold_time_in_second =
-                            (note.note.time as f64 + note.note.hold_time) * seconds_per_tick;
-                        if note_time_in_second >= before_time_in_second {
-                            note.extra_score = NoteScore::None;
-                            note.score = NoteScore::None;
-                        } else if hold_time_in_second >= before_time_in_second {
-                            note.score = NoteScore::None;
-                        } else {
-                            note.score = NoteScore::Perfect;
-                            note.extra_score = NoteScore::Perfect;
-                        }
-                    });
-                };
-                process_notes(&mut line.notes_above_state);
-                process_notes(&mut line.notes_below_state);
-            });
-        })
-        .map_err(|_| "failed to access states".into())
+pub fn reset_note_state(before_time_in_second: f64) {
+    LINE_STATES.with_borrow_mut(|state| {
+        state.iter_mut().for_each(|line| {
+            let seconds_per_tick = get_seconds_per_tick(line.bpm);
+            let process_notes = |notes: &mut [NoteState]| {
+                notes.iter_mut().for_each(|note| {
+                    note.hold_cool_down = 0.0;
+                    let note_time_in_second = note.note.time as f64 * seconds_per_tick;
+                    let hold_time_in_second =
+                        (note.note.time as f64 + note.note.hold_time) * seconds_per_tick;
+                    if note_time_in_second >= before_time_in_second {
+                        note.extra_score = NoteScore::None;
+                        note.score = NoteScore::None;
+                    } else if hold_time_in_second >= before_time_in_second {
+                        note.score = NoteScore::None;
+                    } else {
+                        note.score = NoteScore::Perfect;
+                        note.extra_score = NoteScore::Perfect;
+                    }
+                });
+            };
+            process_notes(&mut line.notes_above_state);
+            process_notes(&mut line.notes_below_state);
+        });
+    });
 }

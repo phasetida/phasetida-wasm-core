@@ -1,11 +1,16 @@
-use wasm_bindgen::prelude::*;
-
 use crate::chart::{Note, NoteType};
 use crate::effect::HitEffect;
 use crate::math::{self, Point};
 use crate::renders::{self, Dense, RendEffect, RendNote, RendPoint, RendStatistics};
 use crate::states::{LineState, NoteScore, NoteState};
-use crate::{CHART_STATISTICS, HIT_EFFECT_POOL, LINE_STATES, TOUCH_STATES};
+use crate::{CHART_STATISTICS, DRAW_IMAGE_OFFSET, HIT_EFFECT_POOL, LINE_STATES, TOUCH_STATES};
+
+pub struct DrawImageOffset {
+    pub hold_head_height: f64,
+    pub hold_head_highlight_height: f64,
+    pub hold_end_height: f64,
+    pub hold_end_highlight_height: f64,
+}
 
 struct BufferWithCursor<'a> {
     buffer: &'a js_sys::Uint8Array,
@@ -21,61 +26,76 @@ impl<'a> BufferWithCursor<'a> {
     }
 }
 
-pub fn process_state_to_drawable(output_buffer: &js_sys::Uint8Array) -> Result<(), JsValue> {
+impl Default for DrawImageOffset {
+    fn default() -> Self {
+        DrawImageOffset {
+            hold_head_height: 0.0,
+            hold_head_highlight_height: 0.0,
+            hold_end_height: 0.0,
+            hold_end_highlight_height: 0.0,
+        }
+    }
+}
+pub fn load_image_offset(
+    hold_head_height: f64,
+    hold_head_highlight_height: f64,
+    hold_end_height: f64,
+    hold_end_highlight_height: f64,
+) {
+    DRAW_IMAGE_OFFSET.with_borrow_mut(|offset| {
+        *offset = DrawImageOffset {
+            hold_head_height,
+            hold_head_highlight_height,
+            hold_end_height,
+            hold_end_highlight_height,
+        };
+    });
+}
+
+pub fn process_state_to_drawable(output_buffer: &js_sys::Uint8Array) {
     let mut wrapped_buffer = BufferWithCursor {
         buffer: output_buffer,
         cursor: 0,
     };
-    CHART_STATISTICS
-        .try_with(|statistics_raw| {
-            let statistics = statistics_raw.borrow();
-            wrapped_buffer.write(
-                RendStatistics {
-                    rend_type: 5,
-                    combo: statistics.combo,
-                    max_combo: statistics.max_combo,
-                    score: statistics.score as f32,
-                    accurate: statistics.accurate as f32,
-                }
-                .to_bytes(),
-            );
-        })
-        .map_err(|_| "failed to access states")?;
-    LINE_STATES
-        .try_with(|states_ref| {
-            let states = states_ref.borrow();
+    CHART_STATISTICS.with_borrow(|statistics| {
+        wrapped_buffer.write(
+            RendStatistics {
+                rend_type: 5,
+                combo: statistics.combo,
+                max_combo: statistics.max_combo,
+                score: statistics.score as f32,
+                accurate: statistics.accurate as f32,
+            }
+            .to_bytes(),
+        );
+    });
+    LINE_STATES.with_borrow(|states| {
+        DRAW_IMAGE_OFFSET.with_borrow(|offset| {
             states
                 .iter()
                 .for_each(|it| write_line(&mut wrapped_buffer, it));
-            write_notes(&mut wrapped_buffer, states.as_ref());
-        })
-        .map_err(|_| "failed to access states")?;
-    HIT_EFFECT_POOL
-        .try_with(|effects_ref| {
-            let effects = effects_ref.borrow();
-            write_effects(&mut wrapped_buffer, effects.as_ref());
-        })
-        .map_err(|_| "failed to access states")?;
-    TOUCH_STATES
-        .try_with(|touches_ref| {
-            let touches = touches_ref.borrow();
-            touches.iter().for_each(|it| {
-                if !it.enable {
-                    return;
+            write_notes(&mut wrapped_buffer, states.as_ref(), offset);
+        });
+    });
+    HIT_EFFECT_POOL.with_borrow(|effects| {
+        write_effects(&mut wrapped_buffer, effects.as_ref());
+    });
+    TOUCH_STATES.with_borrow(|touches| {
+        touches.iter().for_each(|it| {
+            if !it.enable {
+                return;
+            }
+            wrapped_buffer.write(
+                RendPoint {
+                    rend_type: 4,
+                    x: it.x,
+                    y: it.y,
                 }
-                wrapped_buffer.write(
-                    RendPoint {
-                        rend_type: 4,
-                        x: it.x,
-                        y: it.y,
-                    }
-                    .to_bytes(),
-                );
-            });
-        })
-        .map_err(|_| "failed to access states")?;
+                .to_bytes(),
+            );
+        });
+    });
     wrapped_buffer.write(&[0]);
-    Ok(())
 }
 
 fn write_effects(wrapped_buffer: &mut BufferWithCursor, states: &[HitEffect]) {
@@ -112,22 +132,32 @@ fn write_line(wrapped_buffer: &mut BufferWithCursor, state: &LineState) {
     wrapped_buffer.write(line_slice);
 }
 
-fn write_notes(wrapped_buffer: &mut BufferWithCursor, states: &[LineState]) {
+fn write_notes(
+    wrapped_buffer: &mut BufferWithCursor,
+    states: &[LineState],
+    offset: &DrawImageOffset,
+) {
     let notes = states
         .iter()
-        .map(|it| process_notes(it))
-        .collect::<Vec<_>>();
+        .fold((Vec::new(), Vec::new()), |(v1, v2), it| {
+            process_notes(it, offset, v1, v2)
+        });
     notes
+        .0
         .iter()
-        .for_each(|(_, it)| it.iter().for_each(|it| wrapped_buffer.write(it.to_bytes())));
+        .for_each(|it| wrapped_buffer.write(it.to_bytes()));
     notes
+        .1
         .iter()
-        .for_each(|(it, _)| it.iter().for_each(|it| wrapped_buffer.write(it.to_bytes())));
+        .for_each(|it| wrapped_buffer.write(it.to_bytes()));
 }
 
-fn process_notes(state: &LineState) -> (Vec<RendNote>, Vec<RendNote>) {
-    let mut vec = Vec::<RendNote>::new();
-    let mut hold_vec = Vec::<RendNote>::new();
+fn process_notes(
+    state: &LineState,
+    offset: &DrawImageOffset,
+    mut vec: Vec<RendNote>,
+    mut hold_vec: Vec<RendNote>,
+) -> (Vec<RendNote>, Vec<RendNote>) {
     let line_y = state.line_y;
     fn in_bound(x: f64, y: f64) -> bool {
         (-200.0..=2120.0).contains(&x) && (-200.0..=1280.0).contains(&y)
@@ -209,7 +239,12 @@ fn process_notes(state: &LineState) -> (Vec<RendNote>, Vec<RendNote>) {
                         temp_x,
                         temp_y,
                         math::fix_degree(rotate + if reverse { 90.0 } else { -90.0 }),
-                        head_position * math::UNIT_HEIGHT,
+                        head_position * math::UNIT_HEIGHT
+                            - (if *highlight {
+                                offset.hold_head_highlight_height / 2.0
+                            } else {
+                                offset.hold_head_height / 2.0
+                            }),
                     );
                     let Point { x: bx, y: by } = math::get_pos_out_of_line(
                         temp_x,
@@ -226,14 +261,20 @@ fn process_notes(state: &LineState) -> (Vec<RendNote>, Vec<RendNote>) {
                         temp_x,
                         temp_y,
                         math::fix_degree(rotate + if reverse { 90.0 } else { -90.0 }),
-                        (body_position + body_height / 2.0) * math::UNIT_HEIGHT,
+                        (body_position + body_height / 2.0) * math::UNIT_HEIGHT
+                            + (if *highlight {
+                                offset.hold_end_highlight_height / 2.0
+                            } else {
+                                offset.hold_end_height / 2.0
+                            }),
                     );
                     out_hold.push(RendNote {
                         rend_type: 2,
                         note_type: 7,
                         x: ex as f32,
                         y: ey as f32,
-                        rotate: *rotate as f32,
+                        rotate: math::fix_degree(*rotate + if reverse { 180.0 } else { 0.0 })
+                            as f32,
                         height: 0.0,
                         high_light: 0,
                     });
@@ -242,7 +283,8 @@ fn process_notes(state: &LineState) -> (Vec<RendNote>, Vec<RendNote>) {
                         note_type: 6,
                         x: bx as f32,
                         y: by as f32,
-                        rotate: (*rotate + if reverse { 180.0 } else { 0.0 }) as f32,
+                        rotate: math::fix_degree(*rotate + if reverse { 180.0 } else { 0.0 })
+                            as f32,
                         height: (body_height * math::UNIT_HEIGHT) as f32,
                         high_light: should_high_light,
                     });
@@ -252,7 +294,8 @@ fn process_notes(state: &LineState) -> (Vec<RendNote>, Vec<RendNote>) {
                             note_type: 5,
                             x: hx as f32,
                             y: hy as f32,
-                            rotate: *rotate as f32,
+                            rotate: math::fix_degree(*rotate + if reverse { 180.0 } else { 0.0 })
+                                as f32,
                             height: 0.0,
                             high_light: should_high_light,
                         });

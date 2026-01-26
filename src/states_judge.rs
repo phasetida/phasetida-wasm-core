@@ -1,4 +1,3 @@
-use wasm_bindgen::JsValue;
 
 use crate::{
     INPUT_BUFFER, LINE_STATES, TOUCH_STATES,
@@ -9,25 +8,15 @@ use crate::{
     states::{LineState, NoteScore, NoteState},
 };
 
-pub fn tick_lines_judge(delta_time_in_second: f64, auto: bool) -> Result<bool, JsValue> {
-    INPUT_BUFFER.with(input::process_touch_info)?;
-    TOUCH_STATES
-        .try_with(|touches_ref| {
-            let mut touches = touches_ref.borrow_mut();
-            LINE_STATES
-                .try_with(|state_ref| {
-                    let mut lines = state_ref.borrow_mut();
-                    let judged = tick_line_judge(
-                        delta_time_in_second,
-                        touches.as_mut(),
-                        lines.as_mut(),
-                        auto,
-                    );
-                    Ok(judged)
-                })
-                .map_err(|_| "failed to access state")
+pub fn tick_lines_judge(delta_time_in_second: f64, auto: bool) -> bool {
+    INPUT_BUFFER.with(input::process_touch_info);
+    TOUCH_STATES.with_borrow_mut(|touches| {
+        LINE_STATES.with_borrow_mut(|lines| {
+            let judged =
+                tick_line_judge(delta_time_in_second, touches.as_mut(), lines.as_mut(), auto);
+            judged
         })
-        .map_err(|_| "failed to access state")??
+    })
 }
 
 fn tick_line_judge(
