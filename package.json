@@ -1,0 +1,17 @@
+{
+  "name": "phasetida-wasm-core",
+  "type": "module",
+  "version": "0.1.7",
+  "files": [
+    "phasetida_wasm_core_bg.wasm",
+    "phasetida_wasm_core.js",
+    "phasetida_wasm_core_bg.js",
+    "phasetida_wasm_core.d.ts"
+  ],
+  "main": "phasetida_wasm_core.js",
+  "types": "phasetida_wasm_core.d.ts",
+  "sideEffects": [
+    "./phasetida_wasm_core.js",
+    "./snippets/*"
+  ]
+}
