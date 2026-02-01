@@ -91,8 +91,8 @@ pub fn tick_effect(delta_time_in_second: f64) {
                     return;
                 }
                 it.speed -= (it.speed * 7.0 * delta_time_in_second.max(0.0)).max(0.0);
-                it.x += it.speed * it.x_vec;
-                it.y += it.speed * it.y_vec;
+                it.x += it.speed * it.x_vec * delta_time_in_second.max(0.0);
+                it.y += it.speed * it.y_vec * delta_time_in_second.max(0.0);
             }
         });
     })
@@ -109,7 +109,7 @@ pub fn new_splash_effect(rng: &mut Rng, x: f64, y: f64, tint_type: i8, count: u8
                 let rand = rng.range(0.0, 2.0 * std::f64::consts::PI);
                 effect.x_vec = rand.cos();
                 effect.y_vec = rand.sin();
-                effect.speed = 15.0;
+                effect.speed = 2500.0;
                 effect.tint_type = tint_type;
                 effect.progress = 0.0;
                 i -= 1;
