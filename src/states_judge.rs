@@ -1,4 +1,3 @@
-
 use crate::{
     INPUT_BUFFER, LINE_STATES, TOUCH_STATES,
     chart::{Note, NoteType},
@@ -176,10 +175,10 @@ fn check_judge_result(current_tick: f64, note: &NoteState, bpm: f64) -> (f64, No
     )
 }
 
-fn create_splash(x: f64, y: f64, note_score: NoteScore) {
+fn create_splash(seed: f64, x: f64, y: f64, note_score: NoteScore) {
     match note_score {
-        NoteScore::Perfect => effect::new_effect(x, y, 0),
-        NoteScore::Good => effect::new_effect(x, y, 1),
+        NoteScore::Perfect => effect::new_click_effect(seed, x, y, 0),
+        NoteScore::Good => effect::new_click_effect(seed, x, y, 1),
         _ => {}
     };
 }
@@ -207,7 +206,7 @@ fn tick_normal_note_auto(
             note.note.position_x * math::UNIT_WIDTH,
         );
         note.score = NoteScore::Perfect;
-        create_splash(root_x, root_y, NoteScore::Perfect);
+        create_splash(current_tick, root_x, root_y, NoteScore::Perfect);
         return true;
     }
     false
@@ -241,7 +240,7 @@ fn tick_flick_note(
                 note.note.position_x * math::UNIT_WIDTH,
             );
             note.score = NoteScore::Perfect;
-            create_splash(root_x, root_y, NoteScore::Perfect);
+            create_splash(current_tick, root_x, root_y, NoteScore::Perfect);
             return true;
         }
         return false;
@@ -330,7 +329,7 @@ fn tick_hold_note_common(
                 })
             {
                 note.hold_cool_down += 16.0;
-                create_splash(root_x, root_y, note.extra_score);
+                create_splash(current_tick, root_x, root_y, note.extra_score);
             } else {
                 note.score = NoteScore::Miss;
                 judged = true;
@@ -426,7 +425,7 @@ fn tick_drag_note(
                 note.note.position_x * math::UNIT_WIDTH,
             );
             note.score = NoteScore::Perfect;
-            create_splash(root_x, root_y, NoteScore::Perfect);
+            create_splash(current_tick, root_x, root_y, NoteScore::Perfect);
             return true;
         }
         return false;
@@ -479,7 +478,7 @@ fn tick_tap_note(
         if is_in_judge_range && touch.touch_valid {
             touch.touch_valid = false;
             note.score = judge_result;
-            create_splash(root_x, root_y, judge_result);
+            create_splash(current_tick, root_x, root_y, judge_result);
             return true;
         }
     }

@@ -20,6 +20,7 @@ thread_local! {
     pub static LINE_STATES: RefCell<[states::LineState;50]> = RefCell::new(std::array::from_fn(|_|std::default::Default::default()));
     pub static TOUCH_STATES: RefCell<[input::TouchInfo; 30]> = RefCell::new(std::array::from_fn(|_|std::default::Default::default()));
     pub static HIT_EFFECT_POOL: RefCell<[effect::HitEffect; 64]> = RefCell::new(std::array::from_fn(|_|std::default::Default::default()));
+    pub static SPLASH_EFFECT_POOL : RefCell<[effect::SplashEffect;256]> = RefCell::new(std::array::from_fn(|_|std::default::Default::default()));
     pub static CHART_STATISTICS: RefCell<states_statistics::ChartStatistics> = RefCell::new(std::default::Default::default());
 }
 

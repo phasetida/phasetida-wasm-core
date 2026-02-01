@@ -1,9 +1,14 @@
 use crate::chart::{Note, NoteType};
-use crate::effect::HitEffect;
+use crate::effect::{HitEffect, SplashEffect};
 use crate::math::{self, Point};
-use crate::renders::{self, Dense, RendEffect, RendNote, RendPoint, RendStatistics};
+use crate::renders::{
+    self, Dense, RendClickEffect, RendNote, RendPoint, RendSplashEffect, RendStatistics,
+};
 use crate::states::{LineState, NoteScore, NoteState};
-use crate::{CHART_STATISTICS, DRAW_IMAGE_OFFSET, HIT_EFFECT_POOL, LINE_STATES, TOUCH_STATES};
+use crate::{
+    CHART_STATISTICS, DRAW_IMAGE_OFFSET, HIT_EFFECT_POOL, LINE_STATES, SPLASH_EFFECT_POOL,
+    TOUCH_STATES,
+};
 
 pub struct DrawImageOffset {
     pub hold_head_height: f64,
@@ -78,7 +83,10 @@ pub fn process_state_to_drawable(output_buffer: &js_sys::Uint8Array) {
         });
     });
     HIT_EFFECT_POOL.with_borrow(|effects| {
-        write_effects(&mut wrapped_buffer, effects.as_ref());
+        write_click_effects(&mut wrapped_buffer, effects);
+    });
+    SPLASH_EFFECT_POOL.with_borrow(|effects| {
+        write_splash_effects(&mut wrapped_buffer, effects);
     });
     TOUCH_STATES.with_borrow(|touches| {
         touches.iter().for_each(|it| {
@@ -98,13 +106,31 @@ pub fn process_state_to_drawable(output_buffer: &js_sys::Uint8Array) {
     wrapped_buffer.write(&[0]);
 }
 
-fn write_effects(wrapped_buffer: &mut BufferWithCursor, states: &[HitEffect]) {
+fn write_splash_effects(wrapped_buffer: &mut BufferWithCursor, states: &[SplashEffect]) {
     states.iter().for_each(|it| {
         if !it.enable {
             return;
         }
         wrapped_buffer.write(
-            RendEffect {
+            RendSplashEffect {
+                rend_type: 6,
+                x: it.x as f32,
+                y: it.y as f32,
+                frame: ((30.0 * it.progress).floor() as i8).clamp(0, 29),
+                tint_type: it.tint_type,
+            }
+            .to_bytes(),
+        );
+    });
+}
+
+fn write_click_effects(wrapped_buffer: &mut BufferWithCursor, states: &[HitEffect]) {
+    states.iter().for_each(|it| {
+        if !it.enable {
+            return;
+        }
+        wrapped_buffer.write(
+            RendClickEffect {
                 rend_type: 3,
                 x: it.x as f32,
                 y: it.y as f32,
