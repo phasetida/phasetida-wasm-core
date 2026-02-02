@@ -1,29 +1,14 @@
-mod chart;
-mod draw;
-mod effect;
-mod input;
-mod math;
-mod renders;
-mod states;
-mod states_initializing;
-mod states_judge;
-mod states_statistics;
-mod states_ticking;
+mod buffer_wasm;
+mod input_wasm;
+mod renders_wasm;
 
-use crate::draw::process_state_to_drawable;
-use std::cell::RefCell;
+use phasetida_core::{
+    chart, draw, effect, states, states_initializing, states_judge, states_statistics,
+    states_ticking,
+};
 use wasm_bindgen::prelude::*;
 
-thread_local! {
-    pub static DRAW_IMAGE_OFFSET:RefCell<draw::DrawImageOffset> = RefCell::new(std::default::Default::default());
-    pub static FLATTEN_NOTE_INDEX:RefCell<Vec<states_statistics::NoteIndex>>= RefCell::new(Vec::<_>::new());
-    pub static LINE_STATES: RefCell<[states::LineState;50]> = RefCell::new(std::array::from_fn(|_|std::default::Default::default()));
-    pub static TOUCH_STATES: RefCell<[input::TouchInfo; 30]> = RefCell::new(std::array::from_fn(|_|std::default::Default::default()));
-    pub static HIT_EFFECT_POOL: RefCell<[effect::HitEffect; 64]> = RefCell::new(std::array::from_fn(|_|std::default::Default::default()));
-    pub static SPLASH_EFFECT_POOL : RefCell<[effect::SplashEffect;256]> = RefCell::new(std::array::from_fn(|_|std::default::Default::default()));
-    pub static CHART_STATISTICS: RefCell<states_statistics::ChartStatistics> = RefCell::new(std::default::Default::default());
-    pub static SOUND_POOL: RefCell<effect::SoundEffect> = RefCell::new(std::default::Default::default());
-}
+use crate::buffer_wasm::Uint8ArrayWrapper;
 
 #[wasm_bindgen]
 extern "C" {
@@ -68,20 +53,27 @@ pub fn load_level(chart_json: &str) -> Result<JsValue, JsValue> {
             line
         })
         .collect::<Vec<_>>();
-    let meta = states_initializing::init_line_states(result)?;
+    let meta = states_initializing::init_line_states(result);
     states_statistics::init_flatten_line_state();
-    Ok(meta)
+    Ok(serde_wasm_bindgen::to_value(&meta)
+        .map_err(|e| format!("failed to serialize the metadata: {}", e))?)
 }
 
 #[wasm_bindgen]
 pub fn pre_draw(time_in_second: f64, delta_time_in_second: f64, auto: bool) {
     states_ticking::tick_lines(time_in_second);
     effect::tick_effect(delta_time_in_second);
+    INPUT_BUFFER.with(input_wasm::process_touch_info);
     let judged = states_judge::tick_lines_judge(delta_time_in_second, auto);
     if judged {
         states_statistics::refresh_chart_statistics();
     }
-    OUTPUT_BUFFER.with(|buf| process_state_to_drawable(buf));
+    OUTPUT_BUFFER.with(|buf| {
+        draw::process_state_to_drawable(&mut Uint8ArrayWrapper {
+            buffer: buf,
+            cursor: 0,
+        })
+    });
 }
 
 #[wasm_bindgen]
