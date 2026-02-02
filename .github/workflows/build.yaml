@@ -38,10 +38,11 @@ jobs:
           keep_files: false
           force_orphan: true
       
-      - name: Trigger build workflow in phasetida-node-demo
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: build_deploy.yaml
-          repo: phasetida/phasetida-node-demo
-          ref: main
-          token: ${{ secrets.DEMO_TOKEN }}
+      # disable this for now...
+      # - name: Trigger build workflow in phasetida-node-demo
+      #   uses: benc-uk/workflow-dispatch@v1
+      #   with:
+      #     workflow: build_deploy.yaml
+      #     repo: phasetida/phasetida-node-demo
+      #     ref: main
+      #     token: ${{ secrets.DEMO_TOKEN }}
