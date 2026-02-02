@@ -22,6 +22,7 @@ thread_local! {
     pub static HIT_EFFECT_POOL: RefCell<[effect::HitEffect; 64]> = RefCell::new(std::array::from_fn(|_|std::default::Default::default()));
     pub static SPLASH_EFFECT_POOL : RefCell<[effect::SplashEffect;256]> = RefCell::new(std::array::from_fn(|_|std::default::Default::default()));
     pub static CHART_STATISTICS: RefCell<states_statistics::ChartStatistics> = RefCell::new(std::default::Default::default());
+    pub static SOUND_POOL: RefCell<effect::SoundEffect> = RefCell::new(std::default::Default::default());
 }
 
 #[wasm_bindgen]

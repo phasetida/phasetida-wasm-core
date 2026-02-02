@@ -53,6 +53,14 @@ pub struct RendSplashEffect {
     pub tint_type: i8,
 }
 
+#[repr(C, packed)]
+pub struct RendSound {
+    pub rend_type: i8,
+    pub tap_sound: i8,
+    pub drag_sound: i8,
+    pub flick_sound: i8,
+}
+
 pub trait Dense {
     fn to_bytes(&self) -> &[u8]
     where
@@ -73,3 +81,4 @@ impl Dense for RendClickEffect {}
 impl Dense for RendPoint {}
 impl Dense for RendStatistics {}
 impl Dense for RendSplashEffect {}
+impl Dense for RendSound {}

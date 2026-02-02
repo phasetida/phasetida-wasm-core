@@ -1,13 +1,13 @@
 use crate::chart::{Note, NoteType};
-use crate::effect::{HitEffect, SplashEffect};
+use crate::effect::{HitEffect, SoundEffect, SplashEffect};
 use crate::math::{self, Point};
 use crate::renders::{
-    self, Dense, RendClickEffect, RendNote, RendPoint, RendSplashEffect, RendStatistics,
+    self, Dense, RendClickEffect, RendNote, RendPoint, RendSound, RendSplashEffect, RendStatistics,
 };
 use crate::states::{LineState, NoteScore, NoteState};
 use crate::{
-    CHART_STATISTICS, DRAW_IMAGE_OFFSET, HIT_EFFECT_POOL, LINE_STATES, SPLASH_EFFECT_POOL,
-    TOUCH_STATES,
+    CHART_STATISTICS, DRAW_IMAGE_OFFSET, HIT_EFFECT_POOL, LINE_STATES, SOUND_POOL,
+    SPLASH_EFFECT_POOL, TOUCH_STATES,
 };
 
 pub struct DrawImageOffset {
@@ -88,6 +88,7 @@ pub fn process_state_to_drawable(output_buffer: &js_sys::Uint8Array) {
     SPLASH_EFFECT_POOL.with_borrow(|effects| {
         write_splash_effects(&mut wrapped_buffer, effects);
     });
+    SOUND_POOL.with_borrow(|effects| write_sound_effects(&mut wrapped_buffer, effects));
     TOUCH_STATES.with_borrow(|touches| {
         touches.iter().for_each(|it| {
             if !it.enable {
@@ -104,6 +105,18 @@ pub fn process_state_to_drawable(output_buffer: &js_sys::Uint8Array) {
         });
     });
     wrapped_buffer.write(&[0]);
+}
+
+fn write_sound_effects(wrapped_buffer: &mut BufferWithCursor, states: &SoundEffect) {
+    wrapped_buffer.write(
+        RendSound {
+            rend_type: 7,
+            tap_sound: states.tap_sound,
+            drag_sound: states.drag_sound,
+            flick_sound: states.flick_sound,
+        }
+        .to_bytes(),
+    );
 }
 
 fn write_splash_effects(wrapped_buffer: &mut BufferWithCursor, states: &[SplashEffect]) {

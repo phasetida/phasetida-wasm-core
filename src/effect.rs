@@ -1,4 +1,4 @@
-use crate::{HIT_EFFECT_POOL, SPLASH_EFFECT_POOL};
+use crate::{HIT_EFFECT_POOL, SOUND_POOL, SPLASH_EFFECT_POOL, chart::NoteType};
 
 pub struct HitEffect {
     pub enable: bool,
@@ -17,6 +17,12 @@ pub struct SplashEffect {
     pub speed: f64,
     pub progress: f64,
     pub tint_type: i8,
+}
+
+pub struct SoundEffect {
+    pub tap_sound: i8,
+    pub drag_sound: i8,
+    pub flick_sound: i8,
 }
 
 impl Default for HitEffect {
@@ -42,6 +48,16 @@ impl Default for SplashEffect {
             speed: 0.0,
             progress: 0.0,
             tint_type: 0,
+        }
+    }
+}
+
+impl Default for SoundEffect {
+    fn default() -> Self {
+        SoundEffect {
+            tap_sound: 0,
+            drag_sound: 0,
+            flick_sound: 0,
         }
     }
 }
@@ -142,4 +158,20 @@ pub fn new_click_effect(seed: f64, x: f64, y: f64, tint_type: i8) {
             }
         }
     });
+}
+
+pub fn clear_sound_effect() {
+    SOUND_POOL.with_borrow_mut(|sounds| {
+        sounds.tap_sound = 0;
+        sounds.drag_sound = 0;
+        sounds.flick_sound = 0;
+    });
+}
+
+pub fn new_sound_effect(note_type: NoteType) {
+    SOUND_POOL.with_borrow_mut(|sounds| match note_type {
+        NoteType::Tap | NoteType::Hold => sounds.tap_sound += 1,
+        NoteType::Drag => sounds.drag_sound += 1,
+        NoteType::Flick => sounds.flick_sound += 1,
+    })
 }

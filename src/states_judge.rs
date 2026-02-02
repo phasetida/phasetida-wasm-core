@@ -8,6 +8,7 @@ use crate::{
 };
 
 pub fn tick_lines_judge(delta_time_in_second: f64, auto: bool) -> bool {
+    effect::clear_sound_effect();
     INPUT_BUFFER.with(input::process_touch_info);
     TOUCH_STATES.with_borrow_mut(|touches| {
         LINE_STATES.with_borrow_mut(|lines| {
@@ -207,6 +208,7 @@ fn tick_normal_note_auto(
         );
         note.score = NoteScore::Perfect;
         create_splash(current_tick, root_x, root_y, NoteScore::Perfect);
+        effect::new_sound_effect(note.note.note_type);
         return true;
     }
     false
@@ -241,6 +243,7 @@ fn tick_flick_note(
             );
             note.score = NoteScore::Perfect;
             create_splash(current_tick, root_x, root_y, NoteScore::Perfect);
+            effect::new_sound_effect(NoteType::Flick);
             return true;
         }
         return false;
@@ -278,8 +281,9 @@ fn tick_hold_note_auto(
         return false;
     }
     let (judge_delta, _) = check_judge_result(current_tick, note, bpm);
-    if judge_delta >= 0.0 {
+    if judge_delta >= 0.0 && note.extra_score != NoteScore::Perfect {
         note.extra_score = NoteScore::Perfect;
+        effect::new_sound_effect(NoteType::Hold);
     }
     tick_hold_note_common(
         delta_time_in_second,
@@ -391,6 +395,7 @@ fn tick_hold_note(
             }
             touch.touch_valid = false;
             note.extra_score = judge_result;
+            effect::new_sound_effect(NoteType::Hold);
             return false;
         }
     }
@@ -425,6 +430,7 @@ fn tick_drag_note(
                 note.note.position_x * math::UNIT_WIDTH,
             );
             note.score = NoteScore::Perfect;
+            effect::new_sound_effect(NoteType::Drag);
             create_splash(current_tick, root_x, root_y, NoteScore::Perfect);
             return true;
         }
@@ -478,6 +484,7 @@ fn tick_tap_note(
         if is_in_judge_range && touch.touch_valid {
             touch.touch_valid = false;
             note.score = judge_result;
+            effect::new_sound_effect(NoteType::Tap);
             create_splash(current_tick, root_x, root_y, judge_result);
             return true;
         }
