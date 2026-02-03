@@ -50,8 +50,8 @@ checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
 name = "phasetida-core"
-version = "0.1.8"
-source = "git+https://github.com/phasetida/phasetida-core?tag=0.1.8#db914dcd614824c2884afa77567abba8cb9ccc68"
+version = "0.1.9"
+source = "git+https://github.com/phasetida/phasetida-core?tag=0.1.9#7c512f3ff6915fdef34e2eb05209e926e83f8063"
 dependencies = [
  "serde",
 ]
