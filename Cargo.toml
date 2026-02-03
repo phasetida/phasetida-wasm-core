@@ -16,4 +16,4 @@ wasm-bindgen = { version = "0.2.106", features = ["std"] }
 
 [dependencies.phasetida-core]
 git = "https://github.com/phasetida/phasetida-core"
-tag = "0.1.8"
+tag = "0.1.9"
