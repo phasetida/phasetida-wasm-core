@@ -2,7 +2,10 @@ mod buffer_wasm;
 mod input_wasm;
 mod renders_wasm;
 
-use phasetida_core::{Chart, init_line_states, process_state_to_drawable, tick_all};
+use phasetida_core::{
+    chart, draw, effect, states, states_initializing, states_judge, states_statistics,
+    states_ticking,
+};
 use wasm_bindgen::prelude::*;
 
 use crate::buffer_wasm::Uint8ArrayWrapper;
@@ -29,7 +32,7 @@ pub fn load_image_offset(
     hold_end_height: f64,
     hold_end_highlight_height: f64,
 ) {
-    phasetida_core::load_image_offset(
+    draw::load_image_offset(
         hold_head_height,
         hold_head_highlight_height,
         hold_end_height,
@@ -39,19 +42,34 @@ pub fn load_image_offset(
 
 #[wasm_bindgen]
 pub fn load_level(chart_json: &str) -> Result<JsValue, JsValue> {
-    let result: Chart =
+    let mut result: chart::Chart =
         serde_json::from_str(chart_json).map_err(|e| format!("failed to analyze, {}", e))?;
-    let meta = init_line_states(result);
+    result.judge_line_list = result
+        .judge_line_list
+        .into_iter()
+        .map(|mut line| {
+            line.notes_above.sort_by(|a, b| (a.time).cmp(&b.time));
+            line.notes_below.sort_by(|a, b| (a.time).cmp(&b.time));
+            line
+        })
+        .collect::<Vec<_>>();
+    let meta = states_initializing::init_line_states(result);
+    states_statistics::init_flatten_line_state();
     Ok(serde_wasm_bindgen::to_value(&meta)
         .map_err(|e| format!("failed to serialize the metadata: {}", e))?)
 }
 
 #[wasm_bindgen]
 pub fn pre_draw(time_in_second: f64, delta_time_in_second: f64, auto: bool) {
+    states_ticking::tick_lines(time_in_second);
+    effect::tick_effect(delta_time_in_second);
     INPUT_BUFFER.with(input_wasm::process_touch_info);
-    tick_all(time_in_second, delta_time_in_second, auto);
+    let judged = states_judge::tick_lines_judge(delta_time_in_second, auto);
+    if judged {
+        states_statistics::refresh_chart_statistics();
+    }
     OUTPUT_BUFFER.with(|buf| {
-        process_state_to_drawable(&mut Uint8ArrayWrapper {
+        draw::process_state_to_drawable(&mut Uint8ArrayWrapper {
             buffer: buf,
             cursor: 0,
         })
@@ -60,5 +78,6 @@ pub fn pre_draw(time_in_second: f64, delta_time_in_second: f64, auto: bool) {
 
 #[wasm_bindgen]
 pub fn reset_note_state(before_time_in_second: f64) {
-    phasetida_core::reset_note_state(before_time_in_second);
+    states::reset_note_state(before_time_in_second);
+    states_statistics::refresh_chart_statistics();
 }
