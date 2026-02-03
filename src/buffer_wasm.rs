@@ -1,5 +1,5 @@
 use js_sys::Uint8Array;
-use phasetida_core::draw::BufferWithCursor;
+use phasetida_core::BufferWithCursor;
 
 pub struct Uint8ArrayWrapper<'a>{
     pub buffer: &'a Uint8Array,
